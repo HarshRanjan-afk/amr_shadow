@@ -1,5 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include "shadow_interfaces/msg/robot_status.hpp"
+#include "shadow_interfaces/msg/battery_status.hpp"
 #include <chrono>
 #include <memory>
 #include <functional>
@@ -9,16 +10,14 @@
 class HeartbeatNode: public rclcpp::Node
 {
 private:
-        rclcpp::Publisher<shadow_interfaces::msg::RobotStatus>::SharedPtr status_publisher_;
-        rclcpp::Subscription<std_msgs::msg::String>::SharedPtr command_subscriber_;
+        rclcpp::Publisher<shadow_interfaces::msg::RobotStatus>::SharedPtr status_publisher_;  // status publisher
+        rclcpp::Subscription<std_msgs::msg::String>::SharedPtr command_subscriber_;  //command node subscriber
+        rclcpp::Subscription<shadow_interfaces::msg::BatteryStatus>::SharedPtr battery_subscriber_;  //battery status subscriber
         rclcpp::TimerBase::SharedPtr timer_;
         // std::string current_state_ = "running";
 
         shadow_interfaces::msg::RobotStatus current_status_;
-        // float current_battery_percentage = 100.0;
-        // bool current_emergency_stop = false;
-        // uint16_t current_error_code = 0;
-        // float current_system_temperature = 35.0;
+        shadow_interfaces::msg::BatteryStatus current_battery_status_;
 
         void heartbeat_timer_callback(){
           //  RCLCPP_INFO(this->get_logger(), "Callback Executed");
@@ -42,20 +41,52 @@ private:
             );
         }
 
+        void batteryCallback(const shadow_interfaces::msg::BatteryStatus::SharedPtr msg){
+            current_battery_status_.percentage = msg->percentage;
+            current_battery_status_.voltage = msg -> voltage;
+            current_battery_status_.current = msg -> current;
+            current_battery_status_.temperature = msg -> temperature;
+            current_battery_status_.is_connected = msg -> is_connected;
+
+            RCLCPP_INFO(
+                this->get_logger(),
+                "Battery | Voltage: %.2f V | Current: %.2f A |  Percentage: %.1f%% | Temperature: %.1f C | Connected: %s",
+                msg->voltage,
+                msg->current,
+                msg->percentage,
+                msg->temperature,
+                msg->is_connected ? "Yes" : "No"
+            );
+        }
+
 public:
         HeartbeatNode(): Node("heartbeat_node"){
 
             current_status_.state = "RUNNING";
-            current_status_.battery_percentage = 100.0f;
-            current_status_.emergency_stop = false;
-            current_status_.error_code = 0;
-            current_status_.system_temperature = 35.0f;
+            // current_status_.battery_percentage = 100.0f;
+            // current_status_.emergency_stop = false;
+            // current_status_.error_code = 0;
+            // current_status_.system_temperature = 35.0f;
+            current_battery_status_.percentage = 100.0;
+            current_battery_status_.voltage = 24.0;
+            current_battery_status_.current = 2.0;
+            current_battery_status_.temperature = 30.0;
+            current_battery_status_.is_connected = true;
 
             //RCLCPP_INFO(this->get_logger(), "Heartbeat Node Started");
-            status_publisher_ = this-> create_publisher<shadow_interfaces::msg::RobotStatus>("/robot_status",10);
+            battery_subscriber_ = this-> create_subscription<shadow_interfaces::msg::BatteryStatus>(
+                "/battery_status",
+                10,
+                std::bind(&HeartbeatNode::batteryCallback, this, std::placeholders::_1)
+            );
+
+            status_publisher_ = this-> create_publisher<shadow_interfaces::msg::RobotStatus>(
+                "/robot_status",10
+            );
+
             command_subscriber_= this-> create_subscription<std_msgs::msg::String>("/robot_command",
-            10,
-            std::bind(&HeartbeatNode::robot_command_callback, this, std::placeholders::_1)
+                10,
+                std::bind(&HeartbeatNode::robot_command_callback, this, std::placeholders::_1)
             );
             timer_ = this-> create_wall_timer(
                 std::chrono::seconds(1),

@@ -23,9 +23,16 @@ add_executable(
 )
 ament_target_dependencies(command_node rclcpp shadow_interfaces std_msgs)
 
+add_executable(
+  battery_node
+  src/battery_node.cpp
+)
+ament_target_dependencies(battery_node rclcpp shadow_interfaces std_msgs)
+
 install(TARGETS
   heartbeat_node
   command_node
+  battery_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

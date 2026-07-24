@@ -1,5 +1,1 @@
 string state
-float32 battery_percentage
-bool emergency_stop
-uint16 error_code
-float32 system_temperature
